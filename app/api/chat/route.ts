@@ -27,7 +27,7 @@ const knowledgeBase = [
   },
   {
     content:
-      "OkADA & CO manages a comprehensive property portfolio with over 200 commercial properties. Our dataset includes detailed information about property addresses, floor plans, suite numbers, square footage, rental rates, and associated brokers. We track annual and monthly rent values, with properties ranging from small office spaces to large commercial complexes. Our top associates include experienced professionals like Joshamee Gibbs, Arya Stark, Dr. Sturgis, and Lewis Hamilton who manage various properties across different locations.",
+      "OkADA & CO manages a comprehensive commercial real estate portfolio with 225 properties across Manhattan. Our dataset includes detailed information about property addresses, floor plans, suite numbers, square footage (ranging from 9,000 to 20,000+ sq ft), and rental rates. Annual rents range from $750,000 to over $2 million. Our experienced associates include Jack Sparrow, Davy Jones, Elizabeth Swann, Will Turner, and many others who manage properties on locations like Broadway, Fifth Avenue, West 36th Street, and other prime Manhattan locations. We track monthly rent, annual rent, GCI over 3 years, and work with various building classes from Executive to Premium properties.",
     embedding: [],
   },
 ]
@@ -35,32 +35,54 @@ const knowledgeBase = [
 async function getPropertyContext(query: string) {
   // Check if query is property-related
   const propertyKeywords = [
-    "property",
-    "rent",
-    "square feet",
-    "sf",
-    "floor",
-    "suite",
-    "broker",
-    "associate",
-    "annual rent",
-    "monthly rent",
+    "property", "properties", "rent", "rental", "square feet", "sf", "sqft",
+    "floor", "suite", "broker", "associate", "annual rent", "monthly rent",
+    "building", "address", "broadway", "avenue", "street", "lease", "market"
   ]
-  const isPropertyQuery = propertyKeywords.some((keyword) => query.toLowerCase().includes(keyword.toLowerCase()))
+  const isPropertyQuery = propertyKeywords.some((keyword) => 
+    query.toLowerCase().includes(keyword.toLowerCase())
+  )
 
   if (!isPropertyQuery) return ""
 
   try {
-    // Fetch property data for context
-    const response = await fetch(
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/dataset-2Qr9RNz53lb9EaOetp0WpnjWOJOys6.csv",
+    // Use our backend property search service
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    
+    // Search for relevant properties
+    const searchResponse = await fetch(
+      `${backendUrl}/api/analytics/search?q=${encodeURIComponent(query)}&limit=3`,
+      { headers: { 'Content-Type': 'application/json' } }
     )
-    const csvText = await response.text()
-
-    // Parse and provide sample data for context
-    const lines = csvText.split("\n").slice(0, 6) // First 5 records + header
-    return `\n\nProperty Dataset Sample:\n${lines.join("\n")}\n\nThis dataset contains information about commercial properties including addresses, floor/suite details, square footage, rental rates, associated brokers, and financial metrics.`
+    
+    if (searchResponse.ok) {
+      const searchData = await searchResponse.json()
+      
+      if (searchData.results && searchData.results.length > 0) {
+        let context = "\n\nRELEVANT PROPERTY DATA:\n"
+        searchData.results.forEach((result: any, index: number) => {
+          const prop = result.property
+          context += `${index + 1}. ${prop.formatted_info}\n`
+        })
+        
+        // Also get market summary
+        const marketResponse = await fetch(`${backendUrl}/api/analytics/market-summary`)
+        if (marketResponse.ok) {
+          const marketData = await marketResponse.json()
+          const summary = marketData.summary
+          context += `\nMARKET OVERVIEW:\n`
+          context += `Total Properties: ${summary.total_properties || 0}\n`
+          context += `Average Annual Rent: $${(summary.average_rent || 0).toLocaleString()}\n`
+          context += `Average Size: ${(summary.average_size || 0).toLocaleString()} sq ft\n`
+        }
+        
+        return context + "\n\nUse this specific property data to provide accurate, helpful responses."
+      }
+    }
+    
+    return ""
   } catch (error) {
+    console.error('Property context error:', error)
     return ""
   }
 }

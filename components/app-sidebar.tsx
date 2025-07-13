@@ -24,6 +24,11 @@ const menuItems = [
     icon: BarChart3,
   },
   {
+    title: "Properties",
+    url: "/dashboard/properties",
+    icon: Building2,
+  },
+  {
     title: "Chat Assistant",
     url: "/dashboard/chat",
     icon: MessageSquare,

@@ -79,6 +79,19 @@ Thumbs.db
 data/
 mongodb/
 
+# CSV Data Files (may contain sensitive customer information)
+*.csv
+imports/
+/imports/
+
+# But allow example/template CSV files
+!*example*.csv
+!*template*.csv
+!*sample*.csv
+!data/sample*.csv
+!data/template*.csv
+!data/README.md
+
 # Temporary files
 tmp/
 temp/

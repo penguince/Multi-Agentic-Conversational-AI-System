@@ -6,6 +6,8 @@ import logging
 
 from database import connect_to_mongo, close_mongo_connection
 from crm.routes import router as crm_router
+from analytics.routes import router as analytics_router
+from conversations.routes import router as conversation_router
 
 import os
 from dotenv import load_dotenv
@@ -45,6 +47,12 @@ app.add_middleware(
 
 # Include CRM routes
 app.include_router(crm_router)
+
+# Include Analytics routes
+app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"])
+
+# Include Conversation routes
+app.include_router(conversation_router)
 
 # Health check endpoint
 @app.get("/health")

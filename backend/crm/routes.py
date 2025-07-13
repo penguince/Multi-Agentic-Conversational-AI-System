@@ -15,6 +15,14 @@ from .models import (
 )
 from .crud import get_user_crud, get_conversation_crud, UserCRUD, ConversationCRUD
 
+# Import property search service
+try:
+    from analytics.property_search import PropertySearchService
+    property_search = PropertySearchService()
+except ImportError:
+    property_search = None
+    print("Warning: Property search service not available")
+
 # Initialize OpenRouter client
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
@@ -275,20 +283,72 @@ async def extract_user_data_from_conversation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Chat endpoint with OpenRouter integration
+# Chat endpoint with OpenRouter integration and property data
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(message: ChatMessage):
-    """Chat with AI using Google Gemma 3 27B via OpenRouter"""
+    """Chat with AI using Google Gemma 3 27B via OpenRouter with property data integration"""
     try:
         model = os.getenv("OPENAI_MODEL", "google/gemma-2-27b-it")
+        
+        # Enhanced system prompt with property knowledge
+        system_prompt = """You are a helpful AI assistant for OkADA & CO, a commercial real estate firm. You have access to a comprehensive property database and can help with:
+
+1. Property searches and recommendations
+2. Rent comparisons and market analysis  
+3. Associate information and property assignments
+4. Investment analysis and ROI calculations
+5. General CRM and business consulting
+
+When users ask about properties, provide specific data from your knowledge base. Be professional, knowledgeable, and helpful in all real estate matters."""
+
+        # Search for relevant property data if the message contains property-related keywords
+        property_context = ""
+        property_keywords = [
+            'property', 'properties', 'rent', 'rental', 'building', 'address', 'square feet', 'sqft',
+            'associate', 'broker', 'lease', 'annual', 'monthly', 'price', 'cost', 'market',
+            'broadway', 'avenue', 'street', 'manhattan', 'floor', 'suite', 'office'
+        ]
+        
+        message_lower = message.content.lower()
+        if property_search and any(keyword in message_lower for keyword in property_keywords):
+            try:
+                # Search for relevant properties
+                search_results = property_search.search_properties(message.content, limit=5)
+                
+                if search_results:
+                    property_context = "\n\nRELEVANT PROPERTY DATA:\n"
+                    for i, result in enumerate(search_results[:3], 1):
+                        prop = result['property']
+                        property_context += f"\n{i}. {prop['formatted_info']}\n"
+                        if result['match_reasons']:
+                            property_context += f"   Match reasons: {', '.join(result['match_reasons'])}\n"
+                    
+                    property_context += "\nUse this property data to provide specific, accurate answers about our real estate portfolio."
+                
+                # Also get market summary if asking about market trends
+                if any(term in message_lower for term in ['market', 'trend', 'summary', 'overview']):
+                    market_summary = property_search.get_market_summary()
+                    if market_summary:
+                        property_context += f"\n\nMARKET SUMMARY:\n"
+                        property_context += f"Total Properties: {market_summary.get('total_properties', 0)}\n"
+                        property_context += f"Average Annual Rent: ${market_summary.get('average_rent', 0):,.0f}\n"
+                        property_context += f"Average Size: {market_summary.get('average_size', 0):,.0f} sq ft\n"
+                        property_context += f"Average Rent per Sq Ft: ${market_summary.get('rent_per_sqft', 0):.2f}/year\n"
+                        
+            except Exception as e:
+                print(f"Property search error: {e}")
+                # Continue without property data if search fails
+        
+        # Combine system prompt with property context
+        full_system_prompt = system_prompt + property_context
         
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a helpful AI assistant for OkADA & CO, a business consulting firm specializing in digital transformation and AI integration. Provide professional and helpful responses for CRM and business-related questions."},
+                {"role": "system", "content": full_system_prompt},
                 {"role": message.role, "content": message.content}
             ],
-            max_tokens=1000,
+            max_tokens=1500,  # Increased for more detailed responses
             temperature=0.7
         )
         
