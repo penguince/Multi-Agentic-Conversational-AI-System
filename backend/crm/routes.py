@@ -1,12 +1,35 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from datetime import datetime
+from pydantic import BaseModel
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from .models import (
     User, UserCreate, UserUpdate, UserResponse,
     Conversation, ConversationCreate
 )
 from .crud import get_user_crud, get_conversation_crud, UserCRUD, ConversationCRUD
+
+# Initialize OpenRouter client
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
+)
+
+# Chat models
+class ChatMessage(BaseModel):
+    content: str
+    role: str = "user"
+
+class ChatResponse(BaseModel):
+    message: str
+    model: str
+    usage: Optional[dict] = None
 
 router = APIRouter(prefix="/api/crm", tags=["CRM"])
 
@@ -251,3 +274,49 @@ async def extract_user_data_from_conversation(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Chat endpoint with OpenRouter integration
+@router.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(message: ChatMessage):
+    """Chat with AI using Google Gemma 3 27B via OpenRouter"""
+    try:
+        model = os.getenv("OPENAI_MODEL", "google/gemma-2-27b-it")
+        
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a helpful AI assistant for OkADA & CO, a business consulting firm specializing in digital transformation and AI integration. Provide professional and helpful responses for CRM and business-related questions."},
+                {"role": message.role, "content": message.content}
+            ],
+            max_tokens=1000,
+            temperature=0.7
+        )
+        
+        return ChatResponse(
+            message=response.choices[0].message.content,
+            model=model,
+            usage=response.usage.model_dump() if response.usage else None
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
+
+# Extract user data from conversation using AI
+@router.post("/ai-extract-user-data")
+async def ai_extract_user_data(conversation_text: str):
+    """Extract user information from conversation using AI"""
+    try:
+        model = os.getenv("OPENAI_MODEL", "google/gemma-2-27b-it")
+        
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Extract user information (name, email, phone, company, job title) from the conversation text. Return the information in JSON format with confidence scores."},
+                {"role": "user", "content": f"Extract user data from this conversation: {conversation_text}"}
+            ],
+            max_tokens=500,
+            temperature=0.3
+        )
+        
+        return {"extracted_data": response.choices[0].message.content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Extraction error: {str(e)}")

@@ -2,10 +2,12 @@
 
 # dependencies
 /node_modules
+node_modules/
 
 # next.js
 /.next/
 /out/
+.next/
 
 # production
 /build
@@ -16,8 +18,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
+# Environment files (SENSITIVE - Contains API keys)
 .env*
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+backend/.env.*
 
 # vercel
 .vercel
@@ -26,10 +35,60 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Python
 venv/
+env/
+ENV/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.env
+*.so
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# MongoDB data (if using local)
+data/
+mongodb/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# API Keys and Secrets (Double protection)
+**/api-keys.txt
+**/secrets.txt
+**/*secret*
+**/*key*
+!package-lock.json
+!yarn.lock
+!pnpm-lock.yaml

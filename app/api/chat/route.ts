@@ -1,6 +1,12 @@
-import { openai } from "@ai-sdk/openai"
+import { createOpenAI } from "@ai-sdk/openai"
 import { streamText } from "ai"
 import type { NextRequest } from "next/server"
+
+// Initialize OpenRouter client
+const openrouter = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1",
+})
 
 // Enhanced knowledge base with property dataset context
 const knowledgeBase = [
@@ -71,7 +77,7 @@ export async function POST(req: NextRequest) {
     const context = knowledgeBase.map((item) => item.content).join("\n\n") + propertyContext
 
     const result = await streamText({
-      model: openai("gpt-4o"),
+      model: openrouter(process.env.OPENAI_MODEL || "google/gemma-2-27b-it"),
       messages: [
         {
           role: "system",
